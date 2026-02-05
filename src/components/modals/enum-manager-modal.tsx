@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useDiagramStore } from '@/hooks/use-diagram-store';
-import { Plus, Trash2, X, GripVertical } from 'lucide-react';
+import { Plus, Trash2, X, GripVertical, Table } from 'lucide-react';
 import { EnumDefinition } from '@/types/diagram';
 
 interface EnumManagerModalProps {
@@ -10,6 +10,9 @@ interface EnumManagerModalProps {
 }
 
 const EnumManagerModal = ({ open, onOpenChange }: EnumManagerModalProps) => {
+  const nodes = useDiagramStore((state) => state.nodes);
+  const addEnumEntity = useDiagramStore((state) => state.addEnumEntity);
+  const updateEntity = useDiagramStore((state) => state.updateEntity);
   const enumDefinitions = useDiagramStore((state) => state.enumDefinitions);
   const addEnumDefinition = useDiagramStore((state) => state.addEnumDefinition);
   const updateEnumDefinition = useDiagramStore((state) => state.updateEnumDefinition);
@@ -70,6 +73,31 @@ const EnumManagerModal = ({ open, onOpenChange }: EnumManagerModalProps) => {
     }
   };
 
+  // Find if there's an enum table linked to this enum definition
+  const getLinkedEnumTable = (enumDef: EnumDefinition) => {
+    return nodes.find(
+      (node) => 
+        node.type === 'entity' && 
+        node.data.tableType === 'enum' && 
+        node.data.label === enumDef.name
+    );
+  };
+
+  // Create or update enum table from enum definition
+  const handleCreateEnumTable = (enumDef: EnumDefinition) => {
+    const existingTable = getLinkedEnumTable(enumDef);
+    
+    if (existingTable) {
+      // Update existing table
+      updateEntity(existingTable.id, {
+        enumValues: enumDef.values
+      });
+    } else {
+      // Create new enum table
+      addEnumEntity(enumDef.name, enumDef.values);
+    }
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -103,7 +131,9 @@ const EnumManagerModal = ({ open, onOpenChange }: EnumManagerModalProps) => {
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {enumDefinitions.map((enumDef) => (
+                    {enumDefinitions.map((enumDef) => {
+                      const linkedTable = getLinkedEnumTable(enumDef);
+                      return (
                       <div
                         key={enumDef.id}
                         className={`group flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
@@ -117,22 +147,40 @@ const EnumManagerModal = ({ open, onOpenChange }: EnumManagerModalProps) => {
                           <div className="text-sm font-medium text-slate-800 truncate">
                             {enumDef.name}
                           </div>
-                          <div className="text-xs text-slate-500">
-                            {enumDef.values.length} value{enumDef.values.length !== 1 ? 's' : ''}
+                          <div className="text-xs text-slate-500 flex items-center gap-2">
+                            <span>{enumDef.values.length} value{enumDef.values.length !== 1 ? 's' : ''}</span>
+                            {linkedTable && (
+                              <span className="inline-flex items-center gap-1 text-green-600">
+                                <Table className="w-3 h-3" />
+                                <span>Table</span>
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteEnum(enumDef.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
-                          title="Delete enum"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateEnumTable(enumDef);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded transition-all"
+                            title={linkedTable ? "Update enum table" : "Create enum table"}
+                          >
+                            <Table className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteEnum(enumDef.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-all"
+                            title="Delete enum"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
               </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDiagramStore } from '@/hooks/use-diagram-store';
 import { Node } from '@xyflow/react';
 import { EntityData, AttributeType } from '@/types/diagram';
@@ -14,12 +14,56 @@ const EntityPropertiesPanel = () => {
   const updateUniqueConstraint = useDiagramStore((state) => state.updateUniqueConstraint);
   const deleteUniqueConstraint = useDiagramStore((state) => state.deleteUniqueConstraint);
   const enumDefinitions = useDiagramStore((state) => state.enumDefinitions);
+  const addEnumDefinition = useDiagramStore((state) => state.addEnumDefinition);
+  const updateEnumDefinition = useDiagramStore((state) => state.updateEnumDefinition);
 
   const [showConstraintForm, setShowConstraintForm] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [constraintName, setConstraintName] = useState('');
+  const [linkedEnumId, setLinkedEnumId] = useState<string | null>(null);
+  const isInitialMount = useRef(true);
 
   const selectedNode = nodes.find((n) => n.selected) as Node<EntityData> | undefined;
+
+  // Find linked enum definition when enum table is selected
+  useEffect(() => {
+    if (selectedNode?.data.tableType === 'enum') {
+      // Check if there's already a linked enum definition
+      const existingEnum = enumDefinitions.find(
+        (enumDef) => enumDef.name === selectedNode.data.label
+      );
+      if (existingEnum) {
+        setLinkedEnumId(existingEnum.id);
+      } else {
+        setLinkedEnumId(null);
+      }
+    } else {
+      setLinkedEnumId(null);
+    }
+    isInitialMount.current = false;
+  }, [selectedNode?.id, selectedNode?.data.tableType, selectedNode?.data.label, enumDefinitions]);
+
+  // Sync enum table changes to enum definition
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    
+    if (selectedNode?.data.tableType === 'enum' && selectedNode.data.enumValues) {
+      const filteredValues = selectedNode.data.enumValues.filter(v => v.trim());
+      
+      if (linkedEnumId) {
+        // Update existing enum definition
+        updateEnumDefinition(linkedEnumId, {
+          name: selectedNode.data.label,
+          values: filteredValues
+        });
+      } else if (filteredValues.length > 0) {
+        // Create new enum definition
+        const newEnumId = `enum-${Date.now()}`;
+        addEnumDefinition(selectedNode.data.label, filteredValues);
+        setLinkedEnumId(newEnumId);
+      }
+    }
+  }, [selectedNode?.data.enumValues, selectedNode?.data.label, selectedNode?.data.tableType, linkedEnumId]);
 
   const handleAddConstraint = () => {
     if (selectedNode && selectedColumns.length > 0) {
@@ -90,10 +134,29 @@ const EntityPropertiesPanel = () => {
                     value={selectedNode.data.tableType || 'table'}
                     onChange={(e) => {
                         const newType = e.target.value as 'table' | 'view' | 'enum';
-                        updateEntity(selectedNode.id, { 
-                            tableType: newType,
-                            enumValues: newType === 'enum' ? [''] : undefined
-                        });
+                        if (newType === 'enum') {
+                          // Create enum with initial empty value
+                          const initialValues = [''];
+                          updateEntity(selectedNode.id, { 
+                              tableType: newType,
+                              enumValues: initialValues
+                          });
+                          
+                          // Check if enum definition already exists
+                          const existingEnum = enumDefinitions.find(
+                            (enumDef) => enumDef.name === selectedNode.data.label
+                          );
+                          
+                          if (!existingEnum) {
+                            // Create new enum definition
+                            addEnumDefinition(selectedNode.data.label, []);
+                          }
+                        } else {
+                          updateEntity(selectedNode.id, { 
+                              tableType: newType,
+                              enumValues: undefined
+                          });
+                        }
                     }}
                 >
                     <option value="table">Table</option>
@@ -117,6 +180,22 @@ const EntityPropertiesPanel = () => {
               <Plus className="w-4 h-4" />
             </button>
           </div>
+          
+          {/* Sync Status Indicator */}
+          {linkedEnumId && (
+            <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">Synced with Manage Enums</span>
+              </div>
+              <p className="text-[10px] mt-1 text-green-600">
+                Changes here will automatically update the enum definition
+              </p>
+            </div>
+          )}
+          
           <div className="space-y-2">
             {(selectedNode.data.enumValues || []).map((value, index) => (
               <div key={index} className="flex items-center gap-2 group">

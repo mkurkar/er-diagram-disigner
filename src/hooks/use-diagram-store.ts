@@ -36,6 +36,7 @@ interface DiagramState {
   onEdgesChange: OnEdgesChange;
   onConnect: (connection: Connection) => void;
   addEntity: () => void;
+  addEnumEntity: (name: string, values: string[]) => string;
   updateEntity: (id: string, data: Partial<EntityData>) => void;
   addAttribute: (entityId: string) => void;
   addFKAttribute: (entityId: string, attribute: Attribute) => void;
@@ -135,6 +136,23 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       type: 'entity',
     };
     set({ nodes: [...get().nodes, newNode] });
+  },
+  addEnumEntity: (name: string, values: string[]) => {
+    const id = `entity-${Date.now()}`;
+    const newNode: Node<EntityData> = {
+      id,
+      position: { x: Math.random() * 400, y: Math.random() * 400 },
+      data: {
+        label: name,
+        attributes: [],
+        uniqueConstraints: [],
+        tableType: 'enum',
+        enumValues: values
+      },
+      type: 'entity',
+    };
+    set({ nodes: [...get().nodes, newNode] });
+    return id;
   },
   updateEntity: (id, data) => {
     set({
