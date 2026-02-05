@@ -51,3 +51,14 @@ export interface StickyNoteData extends Record<string, unknown> {
   width: number;
   height: number;
 }
+
+export type RelationshipType = '1:1' | '1:N' | 'N:1' | 'N:M';
+
+export interface RelationshipEdgeData extends Record<string, unknown> {
+  relationshipType?: RelationshipType;
+  sourceColumnId?: string;
+  targetColumnId?: string;
+  label?: string;
+  hasTypeWarning?: boolean;
+  typeWarningMessage?: string;
+}

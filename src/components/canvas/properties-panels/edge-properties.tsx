@@ -1,10 +1,12 @@
 import React from 'react';
 import { useDiagramStore } from '@/hooks/use-diagram-store';
 import { Edge } from '@xyflow/react';
-import { ArrowLeftRight, Trash2, Type, Palette, Activity } from 'lucide-react';
+import { ArrowLeftRight, Trash2, Type, Palette, Activity, AlertTriangle, Database } from 'lucide-react';
+import { EntityData, RelationshipEdgeData } from '@/types/diagram';
 
 const EdgePropertiesPanel = () => {
   const edges = useDiagramStore((state) => state.edges);
+  const nodes = useDiagramStore((state) => state.nodes);
   const updateEdge = useDiagramStore((state) => state.updateEdge);
   const deleteEdge = useDiagramStore((state) => state.deleteEdge);
 
@@ -12,6 +14,41 @@ const EdgePropertiesPanel = () => {
 
   if (!selectedEdge) {
     return null;
+  }
+
+  const edgeData = selectedEdge.data as RelationshipEdgeData | undefined;
+  
+  // Get column information if available
+  let sourceColumnInfo: { tableName: string; columnName: string; columnType: string } | null = null;
+  let targetColumnInfo: { tableName: string; columnName: string; columnType: string } | null = null;
+  
+  if (edgeData?.sourceColumnId && edgeData?.targetColumnId) {
+    const sourceNode = nodes.find(n => n.id === selectedEdge.source);
+    const targetNode = nodes.find(n => n.id === selectedEdge.target);
+    
+    if (sourceNode?.type === 'entity') {
+      const entityData = sourceNode.data as EntityData;
+      const sourceAttr = entityData.attributes?.find(a => a.id === edgeData.sourceColumnId);
+      if (sourceAttr) {
+        sourceColumnInfo = {
+          tableName: entityData.label,
+          columnName: sourceAttr.name,
+          columnType: sourceAttr.type
+        };
+      }
+    }
+    
+    if (targetNode?.type === 'entity') {
+      const entityData = targetNode.data as EntityData;
+      const targetAttr = entityData.attributes?.find(a => a.id === edgeData.targetColumnId);
+      if (targetAttr) {
+        targetColumnInfo = {
+          tableName: entityData.label,
+          columnName: targetAttr.name,
+          columnType: targetAttr.type
+        };
+      }
+    }
   }
 
   const relationshipTypes = [
@@ -41,6 +78,45 @@ const EdgePropertiesPanel = () => {
         </h2>
         
         <div className="space-y-5">
+             {/* Column Information */}
+             {sourceColumnInfo && targetColumnInfo && (
+               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                 <div className="flex items-center gap-2 text-xs font-medium text-blue-800">
+                   <Database className="w-3.5 h-3.5" />
+                   Column Relationship
+                 </div>
+                 <div className="text-xs space-y-1">
+                   <div className="flex items-start gap-2">
+                     <span className="text-slate-500 min-w-[60px]">From:</span>
+                     <span className="text-slate-700 font-medium">
+                       {sourceColumnInfo.tableName}.
+                       <span className="text-blue-600">{sourceColumnInfo.columnName}</span>
+                       <span className="text-slate-400 ml-1">({sourceColumnInfo.columnType})</span>
+                     </span>
+                   </div>
+                   <div className="flex items-start gap-2">
+                     <span className="text-slate-500 min-w-[60px]">To:</span>
+                     <span className="text-slate-700 font-medium">
+                       {targetColumnInfo.tableName}.
+                       <span className="text-blue-600">{targetColumnInfo.columnName}</span>
+                       <span className="text-slate-400 ml-1">({targetColumnInfo.columnType})</span>
+                     </span>
+                   </div>
+                 </div>
+               </div>
+             )}
+             
+             {/* Type Warning */}
+             {edgeData?.hasTypeWarning && (
+               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
+                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                 <div className="text-xs">
+                   <div className="font-medium text-amber-800 mb-1">Type Mismatch Warning</div>
+                   <div className="text-amber-700">{edgeData.typeWarningMessage}</div>
+                 </div>
+               </div>
+             )}
+        
              {/* Label Input */}
              <div className="space-y-1.5">
                 <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5">

@@ -1,7 +1,7 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { EntityData } from '@/types/diagram';
-import { KeyRound, Table, Trash2, GripVertical, CheckCircle2, Ban, List } from 'lucide-react';
+import { KeyRound, Table, Trash2, GripVertical, CheckCircle2, Ban, List, Link2 } from 'lucide-react';
 import clsx from 'clsx';
 import { useDiagramStore } from '@/hooks/use-diagram-store';
 import { motion } from 'framer-motion';
@@ -78,6 +78,7 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
   const updateAttribute = useDiagramStore((state) => state.updateAttribute);
   const deleteAttribute = useDiagramStore((state) => state.deleteAttribute);
   const enumDefinitions = useDiagramStore((state) => state.enumDefinitions);
+  const edges = useDiagramStore((state) => state.edges);
 
   // Helper to get display type
   const getDisplayType = (attr: EntityData['attributes'][0]) => {
@@ -95,6 +96,13 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
       return enumDef ? enumDef.values : [];
     }
     return [];
+  };
+
+  // Check if a column has any relations
+  const hasRelations = (attrId: string) => {
+    return edges.some(edge => 
+      edge.data?.sourceColumnId === attrId || edge.data?.targetColumnId === attrId
+    );
   };
 
   return (
@@ -161,6 +169,24 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
           <>
         {data.attributes.map((attr) => (
           <div key={attr.id} className="px-3 py-2 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 hover:bg-slate-50 relative group/attr transition-colors">
+            {/* Left Handle for incoming connections */}
+            <Handle 
+              type="target" 
+              position={Position.Left} 
+              id={`${id}-${attr.id}-left`}
+              className="!bg-blue-400 !w-2.5 !h-2.5 !-left-1.5 !border-2 !border-white opacity-0 group-hover/attr:opacity-100 transition-opacity hover:!scale-125 hover:!bg-blue-600"
+              style={{ top: '50%', transform: 'translateY(-50%)' }}
+            />
+            
+            {/* Right Handle for outgoing connections */}
+            <Handle 
+              type="source" 
+              position={Position.Right} 
+              id={`${id}-${attr.id}-right`}
+              className="!bg-blue-400 !w-2.5 !h-2.5 !-right-1.5 !border-2 !border-white opacity-0 group-hover/attr:opacity-100 transition-opacity hover:!scale-125 hover:!bg-blue-600"
+              style={{ top: '50%', transform: 'translateY(-50%)' }}
+            />
+            
             <div className="flex items-center gap-1.5 flex-1 min-w-0 mr-2">
                {/* PK/FK Indicators */}
                {attr.isPrimaryKey && (
@@ -183,6 +209,12 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
                {!attr.isNullable && (
                  <span title="NOT NULL">
                    <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                 </span>
+               )}
+               {/* Has Relations Indicator */}
+               {hasRelations(attr.id) && (
+                 <span title="Has Relations">
+                   <Link2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                  </span>
                )}
                
@@ -233,13 +265,8 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
             </div>
          )}
          </>
-        )}
-       </div>
-
-      <Handle type="target" position={Position.Left} className="!bg-slate-300 !w-3 !h-3 !-left-1.5 !border-2 !border-white transition-all hover:!bg-blue-500 hover:!w-4 hover:!h-4" />
-      <Handle type="source" position={Position.Right} className="!bg-slate-300 !w-3 !h-3 !-right-1.5 !border-2 !border-white transition-all hover:!bg-blue-500 hover:!w-4 hover:!h-4" />
-      <Handle type="target" position={Position.Top} className="!bg-slate-300 !w-3 !h-3 !-top-1.5 !border-2 !border-white transition-all hover:!bg-blue-500 hover:!w-4 hover:!h-4" />
-      <Handle type="source" position={Position.Bottom} className="!bg-slate-300 !w-3 !h-3 !-bottom-1.5 !border-2 !border-white transition-all hover:!bg-blue-500 hover:!w-4 hover:!h-4" />
+         )}
+        </div>
     </motion.div>
   );
 };

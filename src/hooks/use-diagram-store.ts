@@ -9,7 +9,24 @@ import {
   addEdge,
   Connection,
 } from '@xyflow/react';
-import { EntityData, Attribute, UniqueConstraint, EnumDefinition, StickyNoteData, StickyNoteColor } from '@/types/diagram';
+import { EntityData, Attribute, UniqueConstraint, EnumDefinition, StickyNoteData, StickyNoteColor, RelationshipEdgeData, AttributeType } from '@/types/diagram';
+
+// Helper function to check type compatibility for relationships
+function checkTypeCompatibility(sourceType: AttributeType, targetType: AttributeType): boolean {
+  // Exact match is always compatible
+  if (sourceType === targetType) return true;
+  
+  // Numeric types are compatible with each other
+  const numericTypes: AttributeType[] = ['int', 'float', 'decimal'];
+  if (numericTypes.includes(sourceType) && numericTypes.includes(targetType)) return true;
+  
+  // Text types are compatible with each other
+  const textTypes: AttributeType[] = ['varchar', 'text'];
+  if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
+  
+  // Otherwise, types are incompatible
+  return false;
+}
 
 interface DiagramState {
   nodes: Node<EntityData | StickyNoteData>[];
@@ -21,6 +38,7 @@ interface DiagramState {
   addEntity: () => void;
   updateEntity: (id: string, data: Partial<EntityData>) => void;
   addAttribute: (entityId: string) => void;
+  addFKAttribute: (entityId: string, attribute: Attribute) => void;
   updateAttribute: (entityId: string, attrId: string, data: Partial<Attribute>) => void;
   deleteAttribute: (entityId: string, attrId: string) => void;
   addUniqueConstraint: (entityId: string, columnIds: string[], name?: string) => void;
@@ -51,8 +69,46 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
     });
   },
   onConnect: (connection) => {
+    const { source, target, sourceHandle, targetHandle } = connection;
+    
+    // Extract column IDs from handle IDs (format: nodeId-columnId-side)
+    const sourceColumnId = sourceHandle?.split('-').slice(1, -1).join('-');
+    const targetColumnId = targetHandle?.split('-').slice(1, -1).join('-');
+    
+    // Find source and target nodes
+    const sourceNode = get().nodes.find(n => n.id === source) as Node<EntityData> | undefined;
+    const targetNode = get().nodes.find(n => n.id === target) as Node<EntityData> | undefined;
+    
+    let edgeData: RelationshipEdgeData = {};
+    
+    // If we have column-specific connection, add validation
+    if (sourceColumnId && targetColumnId && sourceNode && targetNode) {
+      const sourceAttr = sourceNode.data.attributes?.find(a => a.id === sourceColumnId);
+      const targetAttr = targetNode.data.attributes?.find(a => a.id === targetColumnId);
+      
+      edgeData.sourceColumnId = sourceColumnId;
+      edgeData.targetColumnId = targetColumnId;
+      
+      // Type compatibility check
+      if (sourceAttr && targetAttr) {
+        const typesCompatible = checkTypeCompatibility(sourceAttr.type, targetAttr.type);
+        if (!typesCompatible) {
+          edgeData.hasTypeWarning = true;
+          edgeData.typeWarningMessage = `Type mismatch: ${sourceAttr.type.toUpperCase()} → ${targetAttr.type.toUpperCase()}`;
+        }
+        
+        // Generate label
+        edgeData.label = `${sourceAttr.name} → ${targetAttr.name}`;
+      }
+    }
+    
+    const newEdge = {
+      ...connection,
+      data: edgeData,
+    };
+    
     set({
-      edges: addEdge(connection, get().edges),
+      edges: addEdge(newEdge, get().edges),
     });
   },
   addEntity: () => {
@@ -106,6 +162,23 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
                 data: {
                     ...entityData,
                     attributes: [...entityData.attributes, newAttr]
+                }
+            };
+        }
+        return node;
+      })
+    });
+  },
+  addFKAttribute: (entityId, attribute) => {
+    set({
+      nodes: get().nodes.map((node) => {
+        if (node.id === entityId && node.type === 'entity') {
+            const entityData = node.data as EntityData;
+            return {
+                ...node,
+                data: {
+                    ...entityData,
+                    attributes: [...entityData.attributes, attribute]
                 }
             };
         }
