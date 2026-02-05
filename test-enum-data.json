@@ -1,0 +1,41 @@
+{
+  "nodes": [
+    {
+      "id": "entity-1770316964668",
+      "position": {
+        "x": 72.91657123331801,
+        "y": 360.1234437753841
+      },
+      "data": {
+        "label": "UserStatus",
+        "attributes": [
+          {
+            "id": "attr-1770316964668",
+            "name": "id",
+            "type": "int",
+            "isPrimaryKey": true,
+            "isForeignKey": false,
+            "isUnique": false,
+            "isNullable": false
+          }
+        ],
+        "uniqueConstraints": [],
+        "tableType": "enum",
+        "enumValues": [
+          "ACTIVE",
+          "INACTIVE",
+          "PENDING",
+          "SUSPENDED"
+        ]
+      },
+      "type": "entity",
+      "measured": {
+        "width": 220,
+        "height": 188
+      },
+      "selected": true
+    }
+  ],
+  "edges": [],
+  "enumDefinitions": []
+}

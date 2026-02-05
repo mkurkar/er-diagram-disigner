@@ -1,14 +1,18 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useDiagramStore } from '@/hooks/use-diagram-store';
-import { Plus, Download, Upload, Save } from 'lucide-react';
+import { Plus, Download, Upload, Save, Settings, StickyNote } from 'lucide-react';
 import { useReactFlow, getNodesBounds, getViewportForBounds } from '@xyflow/react';
 import { toPng } from 'html-to-image';
+import EnumManagerModal from '@/components/modals/enum-manager-modal';
 
 const CanvasToolbar = () => {
   const addEntity = useDiagramStore((state) => state.addEntity);
+  const addStickyNote = useDiagramStore((state) => state.addStickyNote);
   const loadGraph = useDiagramStore((state) => state.loadGraph);
+  const enumDefinitions = useDiagramStore((state) => state.enumDefinitions);
   const { getNodes, getEdges } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isEnumModalOpen, setIsEnumModalOpen] = useState(false);
 
   const handleDownloadImage = async () => {
     const nodes = getNodes();
@@ -54,7 +58,7 @@ const CanvasToolbar = () => {
   const handleSaveData = () => {
       const nodes = getNodes();
       const edges = getEdges();
-      const data = { nodes, edges };
+      const data = { nodes, edges, enumDefinitions };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -73,7 +77,7 @@ const CanvasToolbar = () => {
           try {
               const json = JSON.parse(event.target?.result as string);
               if (json.nodes && json.edges) {
-                  loadGraph(json.nodes, json.edges);
+                  loadGraph(json.nodes, json.edges, json.enumDefinitions);
               } else {
                   alert('Invalid file format');
               }
@@ -95,51 +99,72 @@ const CanvasToolbar = () => {
   };
 
   return (
-    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-      <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
-        <button
-            onClick={addEntity}
-            className="p-2 hover:bg-slate-100 rounded text-slate-700"
-            title="Add Table (Shift+N)"
-        >
-            <Plus className="w-5 h-5" />
-        </button>
-      </div>
-      
-       <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
-         <button
-            onClick={handleSaveData}
-            className="p-2 hover:bg-slate-100 rounded text-slate-700"
-            title="Save Data (JSON)"
-         >
-            <Save className="w-5 h-5" />
-        </button>
-         <button
-            onClick={triggerFileInput}
-            className="p-2 hover:bg-slate-100 rounded text-slate-700"
-            title="Load Data (JSON)"
-         >
-            <Upload className="w-5 h-5" />
-        </button>
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleLoadData} 
-            accept=".json" 
-            className="hidden" 
-        />
-       </div>
+    <>
+      <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+        <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
+          <button
+              onClick={addEntity}
+              className="p-2 hover:bg-slate-100 rounded text-slate-700"
+              title="Add Table (Shift+N)"
+          >
+              <Plus className="w-5 h-5" />
+          </button>
+          <button
+              onClick={addStickyNote}
+              className="p-2 hover:bg-slate-100 rounded text-slate-700"
+              title="Add Sticky Note"
+          >
+              <StickyNote className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
+          <button
+              onClick={() => setIsEnumModalOpen(true)}
+              className="p-2 hover:bg-slate-100 rounded text-slate-700"
+              title="Manage Enums"
+          >
+              <Settings className="w-5 h-5" />
+          </button>
+        </div>
+        
+         <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
+           <button
+              onClick={handleSaveData}
+              className="p-2 hover:bg-slate-100 rounded text-slate-700"
+              title="Save Data (JSON)"
+           >
+              <Save className="w-5 h-5" />
+          </button>
+           <button
+              onClick={triggerFileInput}
+              className="p-2 hover:bg-slate-100 rounded text-slate-700"
+              title="Load Data (JSON)"
+           >
+              <Upload className="w-5 h-5" />
+          </button>
+          <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleLoadData} 
+              accept=".json" 
+              className="hidden" 
+          />
+         </div>
 
-       <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
-         <button
-            onClick={handleDownloadImage}
-            className="p-2 hover:bg-slate-100 rounded text-slate-700"
-            title="Export Image (PNG)"
-         >
-            <Download className="w-5 h-5" />
-        </button>
-       </div>
-    </div>
+         <div className="bg-white p-1.5 rounded-lg shadow-md border border-slate-200 flex flex-col gap-1">
+           <button
+              onClick={handleDownloadImage}
+              className="p-2 hover:bg-slate-100 rounded text-slate-700"
+              title="Export Image (PNG)"
+           >
+              <Download className="w-5 h-5" />
+          </button>
+         </div>
+      </div>
+
+      <EnumManagerModal open={isEnumModalOpen} onOpenChange={setIsEnumModalOpen} />
+    </>
   );
 };
 

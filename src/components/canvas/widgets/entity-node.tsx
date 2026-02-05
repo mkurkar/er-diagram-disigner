@@ -1,7 +1,7 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
 import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { EntityData } from '@/types/diagram';
-import { KeyRound, Table, Trash2, GripVertical } from 'lucide-react';
+import { KeyRound, Table, Trash2, GripVertical, CheckCircle2, Ban, List } from 'lucide-react';
 import clsx from 'clsx';
 import { useDiagramStore } from '@/hooks/use-diagram-store';
 import { motion } from 'framer-motion';
@@ -77,6 +77,25 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
   const updateEntity = useDiagramStore((state) => state.updateEntity);
   const updateAttribute = useDiagramStore((state) => state.updateAttribute);
   const deleteAttribute = useDiagramStore((state) => state.deleteAttribute);
+  const enumDefinitions = useDiagramStore((state) => state.enumDefinitions);
+
+  // Helper to get display type
+  const getDisplayType = (attr: EntityData['attributes'][0]) => {
+    if (attr.type === 'enum' && attr.enumDefinitionId) {
+      const enumDef = enumDefinitions.find(e => e.id === attr.enumDefinitionId);
+      return enumDef ? enumDef.name : 'ENUM';
+    }
+    return attr.type;
+  };
+
+  // Helper to get enum values for tooltip
+  const getEnumValues = (attr: EntityData['attributes'][0]) => {
+    if (attr.type === 'enum' && attr.enumDefinitionId) {
+      const enumDef = enumDefinitions.find(e => e.id === attr.enumDefinitionId);
+      return enumDef ? enumDef.values : [];
+    }
+    return [];
+  };
 
   return (
     <motion.div 
@@ -87,25 +106,85 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
         selected ? "border-blue-500 shadow-blue-200 ring-2 ring-blue-100" : "border-slate-200 hover:border-slate-300"
     )}>
       {/* Header with Drag Handle */}
-      <div className="bg-slate-100 px-3 py-2 border-b border-slate-200 flex items-center gap-2 cursor-grab active:cursor-grabbing">
+      <div className={clsx(
+        "px-3 py-2 border-b border-slate-200 flex items-center gap-2 cursor-grab active:cursor-grabbing",
+        data.tableType === 'enum' ? "bg-purple-100" : data.tableType === 'view' ? "bg-blue-100" : "bg-slate-100"
+      )}>
         <GripVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-        <Table className="w-4 h-4 text-slate-500 shrink-0" />
+        {data.tableType === 'enum' ? (
+          <List className="w-4 h-4 text-purple-600 shrink-0" />
+        ) : data.tableType === 'view' ? (
+          <Table className="w-4 h-4 text-blue-600 shrink-0" />
+        ) : (
+          <Table className="w-4 h-4 text-slate-500 shrink-0" />
+        )}
         <EditableLabel 
           value={data.label} 
           onSave={(val) => updateEntity(id, { label: val })}
           className="font-bold text-slate-700 text-sm flex-1"
           inputClassName="text-sm font-bold w-full"
         />
+        {data.tableType === 'enum' && (
+          <span className="text-[9px] bg-purple-200 text-purple-700 px-2 py-0.5 rounded font-semibold uppercase">
+            ENUM
+          </span>
+        )}
+        {data.tableType === 'view' && (
+          <span className="text-[9px] bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-semibold uppercase">
+            VIEW
+          </span>
+        )}
       </div>
 
-      {/* Attributes */}
+      {/* Attributes or Enum Values */}
       <div className="flex flex-col bg-white">
+        {data.tableType === 'enum' ? (
+          // Display enum values
+          <>
+            {(data.enumValues && data.enumValues.length > 0) ? (
+              data.enumValues.filter(v => v.trim()).map((value, index) => (
+                <div key={index} className="px-3 py-2 flex items-center gap-2 text-xs border-b border-slate-50 last:border-0 hover:bg-purple-50 transition-colors">
+                  <span className="w-5 h-5 flex items-center justify-center bg-purple-100 text-purple-600 rounded-full text-[10px] font-bold shrink-0">
+                    {index + 1}
+                  </span>
+                  <span className="text-slate-700 font-mono">{value}</span>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-xs text-slate-400 text-center italic">
+                No enum values defined yet.
+              </div>
+            )}
+          </>
+        ) : (
+          // Display regular attributes
+          <>
         {data.attributes.map((attr) => (
           <div key={attr.id} className="px-3 py-2 flex items-center justify-between text-xs border-b border-slate-50 last:border-0 hover:bg-slate-50 relative group/attr transition-colors">
-            <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0 mr-2">
                {/* PK/FK Indicators */}
-               {attr.isPrimaryKey && <KeyRound className="w-3.5 h-3.5 text-yellow-500 shrink-0" />}
-               {attr.isForeignKey && <KeyRound className="w-3.5 h-3.5 text-blue-400 transform rotate-45 shrink-0" />}
+               {attr.isPrimaryKey && (
+                 <span title="Primary Key">
+                   <KeyRound className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                 </span>
+               )}
+               {attr.isForeignKey && (
+                 <span title="Foreign Key">
+                   <KeyRound className="w-3.5 h-3.5 text-blue-400 transform rotate-45 shrink-0" />
+                 </span>
+               )}
+               {/* Unique Indicator */}
+               {attr.isUnique && (
+                 <span title="Unique">
+                   <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                 </span>
+               )}
+               {/* NOT NULL Indicator */}
+               {!attr.isNullable && (
+                 <span title="NOT NULL">
+                   <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                 </span>
+               )}
                
                <EditableLabel 
                  value={attr.name}
@@ -116,7 +195,26 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
             </div>
             
             <div className="flex items-center gap-2">
-               <span className="text-slate-400 font-mono text-[10px] shrink-0 uppercase">{attr.type}</span>
+               {/* Enum Indicator with Values */}
+               {attr.type === 'enum' && attr.enumDefinitionId && (
+                 <span 
+                   className="flex items-center gap-1 text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-medium shrink-0" 
+                   title={`Enum values: ${getEnumValues(attr).join(', ')}`}
+                 >
+                   <List className="w-3 h-3" />
+                   <span className="uppercase">{getDisplayType(attr)}</span>
+                 </span>
+               )}
+               {/* Regular Type Display */}
+               {!(attr.type === 'enum' && attr.enumDefinitionId) && (
+                 <span className="text-slate-400 font-mono text-[10px] shrink-0 uppercase">{getDisplayType(attr)}</span>
+               )}
+               {/* Default Value Badge */}
+               {attr.defaultValue && (
+                 <span className="text-[9px] bg-purple-100 text-purple-600 px-1 py-0.5 rounded font-mono shrink-0" title={`Default: ${attr.defaultValue}`}>
+                   ={attr.defaultValue.length > 6 ? attr.defaultValue.substring(0, 6) + '...' : attr.defaultValue}
+                 </span>
+               )}
                {/* Inline Delete Button */}
                <button 
                  onClick={(e) => { e.stopPropagation(); deleteAttribute(id, attr.id); }}
@@ -127,14 +225,16 @@ const EntityNode = ({ id, data, selected }: NodeProps<Node<EntityData>>) => {
                </button>
             </div>
           </div>
-        ))}
-        
-        {data.attributes.length === 0 && (
-           <div className="p-4 text-xs text-slate-400 text-center italic">
-             No attributes yet.<br/>Press <span className="font-bold">Shift + A</span> to add one.
-           </div>
+         ))}
+         
+         {data.attributes.length === 0 && (
+            <div className="p-4 text-xs text-slate-400 text-center italic">
+              No attributes yet.<br/>Press <span className="font-bold">Shift + A</span> to add one.
+            </div>
+         )}
+         </>
         )}
-      </div>
+       </div>
 
       <Handle type="target" position={Position.Left} className="!bg-slate-300 !w-3 !h-3 !-left-1.5 !border-2 !border-white transition-all hover:!bg-blue-500 hover:!w-4 hover:!h-4" />
       <Handle type="source" position={Position.Right} className="!bg-slate-300 !w-3 !h-3 !-right-1.5 !border-2 !border-white transition-all hover:!bg-blue-500 hover:!w-4 hover:!h-4" />

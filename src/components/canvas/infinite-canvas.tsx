@@ -13,7 +13,9 @@ import '@xyflow/react/dist/style.css';
 
 import { useDiagramStore } from '@/hooks/use-diagram-store';
 import EntityNode from './widgets/entity-node';
+import StickyNoteNode from './widgets/sticky-note-node';
 import EntityPropertiesPanel from './properties-panels/entity-properties';
+import { StickyNoteProperties } from './properties-panels/sticky-note-properties';
 import EdgePropertiesPanel from './properties-panels/edge-properties';
 import CanvasToolbar from './canvas-toolbar';
 import { useShortcuts } from '@/hooks/use-shortcuts';
@@ -21,6 +23,7 @@ import { CustomEdgeMarkers } from './widgets/custom-edge-markers';
 
 const nodeTypes: NodeTypes = {
   entity: EntityNode as any,
+  stickyNote: StickyNoteNode as any,
 };
 
 const InfiniteCanvasContent = () => {
@@ -76,11 +79,12 @@ const InfiniteCanvasContent = () => {
       </div>
       
       {/* Show appropriate panel based on selection */}
-      {selectedNode && <EntityPropertiesPanel />}
+      {selectedNode && selectedNode.type === 'entity' && <EntityPropertiesPanel />}
+      {selectedNode && selectedNode.type === 'stickyNote' && <StickyNoteProperties nodeId={selectedNode.id} />}
       {selectedEdge && !selectedNode && <EdgePropertiesPanel />}
       {!selectedNode && !selectedEdge && (
           <div className="w-80 bg-slate-50 border-l border-slate-200 p-4 flex flex-col items-center justify-center text-slate-400 text-sm text-center">
-             <p>Select a table or relationship to edit properties</p>
+             <p>Select a table, sticky note, or relationship to edit properties</p>
           </div>
       )}
     </div>
